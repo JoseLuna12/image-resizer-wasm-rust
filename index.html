@@ -93,13 +93,13 @@
 
                 var e = document.getElementById("res");
                 var value = e.value;
-                var text = e.options[e.selectedIndex].text;
+                var text = e.options[e.selectedIndex].value;
 
                 console.log({text})
 
                 const result = process_image(new Uint8Array(buffer), fileData.extension, "filename.png", text)
-                console.log({result})
-                // displayPhoto(result)
+                console.log(result)
+                displayPhoto({image: result}, fileData.extension)
 
             }
         });
@@ -114,9 +114,9 @@
         //     }
         //   };
 
-        const displayPhoto = async (photo) => {
+        const displayPhoto = async (result, extension) => {
             loaderDiv.style.display = "none";
-            var blob = new Blob([photo], { type: "image/png" });
+            var blob = new Blob(result.image, { type: extension });
             var url = URL.createObjectURL(blob);
             imageToShow.src = url;
         };

@@ -1,6 +1,7 @@
 use std::io::{Cursor, Read, Seek};
 
 use image::{imageops::FilterType, DynamicImage, GenericImageView, ImageFormat};
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
 #[wasm_bindgen(start)]
@@ -31,9 +32,9 @@ struct ImageInformation {
 struct ImageResolver {
     image: DynamicImage,
     information: ImageInformation,
-    half: Option<DynamicImage>,
-    min: Option<DynamicImage>,
-    lowest: Option<DynamicImage>,
+    half: DynamicImage,
+    min: DynamicImage,
+    lowest: DynamicImage,
 }
 
 trait ImageHelpers {
@@ -122,101 +123,109 @@ impl ImageResolver {
         let half_image = image.resize(
             &image_information.width / 2,
             &image_information.height / 2,
-            FilterType::Gaussian,
+            FilterType::Nearest,
         );
+        let half_dimentions = half_image.dimensions();
+        log(&format!(
+            "widht: {} height: {}",
+            half_dimentions.0, half_dimentions.1
+        ));
         log("rceated half image");
 
         let low_image = image.resize(
             &image_information.width / 4,
             &image_information.height / 4,
-            FilterType::Gaussian,
+            FilterType::Nearest,
         );
+        let low_dimentions = low_image.dimensions();
+        log(&format!(
+            "widht: {} height: {}",
+            low_dimentions.0, low_dimentions.1
+        ));
         log("rceated low image");
 
         let lowest_image = image.resize(
             &image_information.width / 5,
             &image_information.height / 5,
-            FilterType::Gaussian,
+            FilterType::Nearest,
         );
+        let lowest_dimentions = lowest_image.dimensions();
+        log(&format!(
+            "widht: {} height: {}",
+            lowest_dimentions.0, lowest_dimentions.1
+        ));
         log("rceated lowest image");
 
         ImageResolver {
-            image,
             information: image_information,
-            half: Some(half_image),
-            min: Some(low_image),
-            lowest: Some(lowest_image),
+            image,
+            half: half_image,
+            min: low_image,
+            lowest: lowest_image,
         }
     }
 
-    pub fn transform_image_to_unit8(&self, res: ImageResolution) -> Option<Vec<u8>> {
+    pub fn update_dimensions(&mut self, resolution: &ImageResolution) {
+        let image = match resolution {
+            ImageResolution::High => &self.image,
+            ImageResolution::Half => &self.half,
+            ImageResolution::Min => &self.min,
+            ImageResolution::Lowest => &self.lowest,
+        };
+
+        let (width, height) = image.dimensions();
+        self.information.height = height;
+        self.information.width = width;
+    }
+
+    pub fn transform_image_to_unit8(&mut self, res: ImageResolution) -> Vec<u8> {
+        self.update_dimensions(&res);
         match res {
-            ImageResolution::High => Some(ImageResolver::write_image_to_vec(
-                &self.image,
-                self.information.extension,
-            )),
+            ImageResolution::High => {
+                ImageResolver::write_image_to_vec(&self.image, self.information.extension)
+            }
             ImageResolution::Half => {
-                log("transofming half image");
-                if let Some(img) = &self.half {
-                    Some(ImageResolver::write_image_to_vec(
-                        &img,
-                        self.information.extension,
-                    ))
-                } else {
-                    None
-                }
+                ImageResolver::write_image_to_vec(&self.half, self.information.extension)
             }
             ImageResolution::Min => {
-                if let Some(img) = &self.min {
-                    Some(ImageResolver::write_image_to_vec(
-                        &img,
-                        self.information.extension,
-                    ))
-                } else {
-                    None
-                }
+                ImageResolver::write_image_to_vec(&self.min, self.information.extension)
             }
             ImageResolution::Lowest => {
-                if let Some(img) = &self.lowest {
-                    Some(ImageResolver::write_image_to_vec(
-                        &img,
-                        self.information.extension,
-                    ))
-                } else {
-                    None
-                }
+                ImageResolver::write_image_to_vec(&self.lowest, self.information.extension)
             }
         }
     }
 }
 
-#[wasm_bindgen]
+#[derive(Serialize, Deserialize)]
 pub struct ResultImage {
-    image: Vec<u8>,
-    width: u32,
-    height: u32,
+    pub image: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[wasm_bindgen]
-pub fn process_image(image: &[u8], mime: &str, name: &str, resolution: &str) -> ResultImage {
+pub fn process_image(image: &[u8], mime: &str, name: &str, resolution: &str) -> Vec<u8> {
     let resolution_value = match resolution {
         "high" => ImageResolution::High,
         "half" => ImageResolution::Half,
         "med" => ImageResolution::Min,
         "low" => ImageResolution::Lowest,
-        _ => ImageResolution::Half,
+        _ => {
+            log(&format!("default value activated: {}", resolution));
+            ImageResolution::Half
+        }
     };
 
-    let image_resolver = ImageResolver::new(image, mime, name);
+    let mut image_resolver = ImageResolver::new(image, mime, name);
 
-    let result_image = match image_resolver.transform_image_to_unit8(resolution_value) {
-        Some(result) => result,
-        None => Vec::new(),
-    };
+    let vector_image = image_resolver.transform_image_to_unit8(resolution_value);
+    // let result_image = ResultImage {
+    //     image: vector_image,
+    //     height: image_resolver.information.width,
+    //     width: image_resolver.information.width,
+    // };
 
-    ResultImage {
-        image: result_image,
-        height: image_resolver.information.width,
-        width: image_resolver.information.width,
-    }
+    // serde_wasm_bindgen::to_value(&result_image).unwrap()
+    vector_image
 }
