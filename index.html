@@ -98,8 +98,9 @@
                 console.log({text})
 
                 const result = process_image(new Uint8Array(buffer), fileData.extension, "filename.png", text)
+                result.image = new Uint8Array(result.image)
                 console.log(result)
-                displayPhoto({image: result}, fileData.extension)
+                displayPhoto(result.image, fileData.extension)
 
             }
         });
@@ -116,7 +117,7 @@
 
         const displayPhoto = async (result, extension) => {
             loaderDiv.style.display = "none";
-            var blob = new Blob(result.image, { type: extension });
+            var blob = new Blob([new Uint8Array(result)], { type: extension });
             var url = URL.createObjectURL(blob);
             imageToShow.src = url;
         };

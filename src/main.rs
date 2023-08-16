@@ -51,10 +51,14 @@ trait ImageHelpers {
 
 impl ImageHelpers for ImageResolver {
     fn get_extension(extension: &str) -> ImageFormat {
+        log(&format!("looging for extension: {}", extension));
         match extension {
             "jpeg" | "jpg" => ImageFormat::Jpeg,
             "png" => ImageFormat::Png,
+            "gif" => ImageFormat::Gif,
+            "webp" => ImageFormat::WebP,
             _ => {
+                log(&format!("image extension not suported: {}", extension));
                 panic!("Image Not supported");
             }
         }
@@ -64,6 +68,7 @@ impl ImageHelpers for ImageResolver {
         match image::load_from_memory_with_format(buffer, *format) {
             Ok(img) => img,
             Err(error) => {
+                log(&format!("could not open the file {:?}", error));
                 panic!("There was a problem opening the file: {:?}", error)
             }
         }
@@ -116,7 +121,9 @@ impl ImageResolver {
         log(extension);
         log(name);
         let extension_format = ImageResolver::get_extension(extension);
+
         let image = ImageResolver::load_image_from_buffer(buffer, &extension_format);
+
         let image_information =
             ImageResolver::get_information_from_dyn_image(&image, extension_format, name);
 
@@ -205,7 +212,7 @@ pub struct ResultImage {
 }
 
 #[wasm_bindgen]
-pub fn process_image(image: &[u8], mime: &str, name: &str, resolution: &str) -> Vec<u8> {
+pub fn process_image(image: &[u8], mime: &str, name: &str, resolution: &str) -> JsValue {
     let resolution_value = match resolution {
         "high" => ImageResolution::High,
         "half" => ImageResolution::Half,
@@ -220,12 +227,11 @@ pub fn process_image(image: &[u8], mime: &str, name: &str, resolution: &str) -> 
     let mut image_resolver = ImageResolver::new(image, mime, name);
 
     let vector_image = image_resolver.transform_image_to_unit8(resolution_value);
-    // let result_image = ResultImage {
-    //     image: vector_image,
-    //     height: image_resolver.information.width,
-    //     width: image_resolver.information.width,
-    // };
+    let result_image = ResultImage {
+        image: vector_image,
+        height: image_resolver.information.width,
+        width: image_resolver.information.width,
+    };
 
-    // serde_wasm_bindgen::to_value(&result_image).unwrap()
-    vector_image
+    serde_wasm_bindgen::to_value(&result_image).unwrap()
 }
