@@ -23,7 +23,6 @@ enum ImageResolution {
 }
 
 struct ImageInformation {
-    name: String,
     width: u32,
     height: u32,
     extension: ImageFormat,
@@ -43,7 +42,6 @@ trait ImageHelpers {
     fn get_information_from_dyn_image(
         image: &DynamicImage,
         extension: ImageFormat,
-        name: &str,
     ) -> ImageInformation;
 
     fn write_image_to_vec(image: &DynamicImage, extension: ImageFormat) -> Vec<u8>;
@@ -77,11 +75,9 @@ impl ImageHelpers for ImageResolver {
     fn get_information_from_dyn_image(
         image: &DynamicImage,
         extension: ImageFormat,
-        name: &str,
     ) -> ImageInformation {
         let (width, height) = image.dimensions();
         ImageInformation {
-            name: String::from(name),
             width,
             height,
             extension,
@@ -125,7 +121,7 @@ impl ImageResolver {
         let image = ImageResolver::load_image_from_buffer(buffer, &extension_format);
 
         let image_information =
-            ImageResolver::get_information_from_dyn_image(&image, extension_format, name);
+            ImageResolver::get_information_from_dyn_image(&image, extension_format);
 
         let half_image = image.resize(
             &image_information.width / 2,
